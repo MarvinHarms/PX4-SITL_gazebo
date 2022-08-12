@@ -1,3 +1,6 @@
 [submodule "external/OpticalFlow"]
 	path = external/OpticalFlow
-	url = https://github.com/PX4/OpticalFlow.git
+	url = https://github.com/PX4/PX4-OpticalFlow.git
+[submodule "external/PX4-OpticalFlow"]
+	path = external/PX4-OpticalFlow
+	url = https://github.com/PX4/PX4-OpticalFlow.git
