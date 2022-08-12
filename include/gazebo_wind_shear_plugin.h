@@ -37,7 +37,6 @@ namespace gazebo {
 static const std::string kDefaultNamespace = "";
 static const std::string kDefaultFrameId = "world";
 
-static constexpr double kDefaultWindVelocityMean = 0.0;
 static constexpr double kDefaultWindVelocityMax = 100.0;
 static constexpr double kDefaultWindVelocityVariance = 0.0;
 static constexpr double kDefaultWindGustVelocityMean = 0.0;
@@ -53,13 +52,12 @@ static constexpr double kDefaultWindDirectionVariance = 0.0;
 static constexpr double kDefaultWindGustDirectionVariance = 0.0;
 
 /// \brief This gazebo plugin simulates wind acting on a model.
-class GazeboWindPlugin : public WorldPlugin {
+class GazeboWindShearPlugin : public ModelPlugin {
  public:
-  GazeboWindPlugin()
-      : WorldPlugin(),
+  GazeboWindShearPlugin()
+      : ModelPlugin(),
         namespace_(kDefaultNamespace),
         wind_pub_topic_("world_wind"),
-        wind_velocity_mean_(kDefaultWindVelocityMean),
         wind_velocity_max_(kDefaultWindVelocityMax),
         wind_velocity_variance_(kDefaultWindVelocityVariance),
         wind_gust_velocity_mean_(kDefaultWindGustVelocityMean),
@@ -73,13 +71,13 @@ class GazeboWindPlugin : public WorldPlugin {
         pub_interval_(0.5),
         node_handle_(NULL) {}
 
-  virtual ~GazeboWindPlugin();
+  virtual ~GazeboWindShearPlugin();
 
  protected:
   /// \brief Load the plugin.
   /// \param[in] _model Pointer to the model that loaded this plugin.
   /// \param[in] _sdf SDF element that describes the plugin.
-  void Load(physics::WorldPtr world, sdf::ElementPtr sdf);
+  void Load(physics::ModelPtr model, sdf::ElementPtr sdf);
 
   /// \brief Called when the world is updated.
   /// \param[in] _info Update timing information.
@@ -90,13 +88,13 @@ class GazeboWindPlugin : public WorldPlugin {
   event::ConnectionPtr update_connection_;
 
   physics::WorldPtr world_;
+  physics::ModelPtr model_;
 
   std::string namespace_;
 
   std::string frame_id_;
   std::string wind_pub_topic_;
 
-  double wind_velocity_mean_;
   double wind_velocity_max_;
   double wind_velocity_variance_;
   double wind_gust_velocity_mean_;
@@ -111,6 +109,8 @@ class GazeboWindPlugin : public WorldPlugin {
   ignition::math::Vector3d xyz_offset_;
   ignition::math::Vector3d wind_direction_mean_;
   ignition::math::Vector3d wind_gust_direction_mean_;
+  double wind_shear_gradient_{0.2}; // [m/s/m]Windspeed increase / altitude
+  double wind_shear_offset_{0.0}; // [m/s] Wind speed at 0m altitude
   double wind_direction_variance_;
   double wind_gust_direction_variance_;
   std::default_random_engine wind_direction_generator_;

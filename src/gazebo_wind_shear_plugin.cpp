@@ -19,17 +19,19 @@
  * limitations under the License.
  */
 
-#include "gazebo_wind_plugin.h"
+#include "gazebo_wind_shear_plugin.h"
 #include "common.h"
 
 namespace gazebo {
 
-GazeboWindPlugin::~GazeboWindPlugin() {
+GazeboWindShearPlugin::~GazeboWindShearPlugin() {
   update_connection_->~Connection();
 }
 
-void GazeboWindPlugin::Load(physics::WorldPtr world, sdf::ElementPtr sdf) {
-  world_ = world;
+void GazeboWindShearPlugin::Load(physics::ModelPtr model, sdf::ElementPtr sdf) {
+  model_ = model;
+
+  world_ = model->GetWorld();
 
   double wind_gust_start = kDefaultWindGustStart;
   double wind_gust_duration = kDefaultWindGustDuration;
@@ -54,7 +56,6 @@ void GazeboWindPlugin::Load(physics::WorldPtr world, sdf::ElementPtr sdf) {
   pub_interval_ = (pub_rate > 0.0) ? 1/pub_rate : 0.0;
   getSdfParam<std::string>(sdf, "frameId", frame_id_, frame_id_);
   // Get the wind params from SDF.
-  getSdfParam<double>(sdf, "windVelocityMean", wind_velocity_mean_, wind_velocity_mean_);
   getSdfParam<double>(sdf, "windVelocityMax", wind_velocity_max_, wind_velocity_max_);
   getSdfParam<double>(sdf, "windVelocityVariance", wind_velocity_variance_, wind_velocity_variance_);
   getSdfParam<ignition::math::Vector3d>(sdf, "windDirectionMean", wind_direction_mean_, wind_direction_mean_);
@@ -67,13 +68,16 @@ void GazeboWindPlugin::Load(physics::WorldPtr world, sdf::ElementPtr sdf) {
   getSdfParam<double>(sdf, "windGustVelocityVariance", wind_gust_velocity_variance_, wind_gust_velocity_variance_);
   getSdfParam<ignition::math::Vector3d>(sdf, "windGustDirectionMean", wind_gust_direction_mean_, wind_gust_direction_mean_);
   getSdfParam<double>(sdf, "windGustDirectionVariance", wind_gust_direction_variance_, wind_gust_direction_variance_);
+  getSdfParam<double>(sdf, "windShearGradient", wind_shear_gradient_, wind_shear_gradient_);
+  getSdfParam<double>(sdf, "windShearOffset", wind_shear_offset_, wind_shear_offset_);
+
+  ///TODO: Define wind shear parameters
+
 
   wind_direction_mean_.Normalize();
   wind_gust_direction_mean_.Normalize();
   wind_gust_start_ = common::Time(wind_gust_start);
   wind_gust_end_ = common::Time(wind_gust_start + wind_gust_duration);
-  // Set random wind velocity mean and standard deviation
-  wind_velocity_distribution_.param(std::normal_distribution<double>::param_type(wind_velocity_mean_, sqrt(wind_velocity_variance_)));
   // Set random wind direction mean and standard deviation
   wind_direction_distribution_X_.param(std::normal_distribution<double>::param_type(wind_direction_mean_.X(), sqrt(wind_direction_variance_)));
   wind_direction_distribution_Y_.param(std::normal_distribution<double>::param_type(wind_direction_mean_.Y(), sqrt(wind_direction_variance_)));
@@ -87,7 +91,7 @@ void GazeboWindPlugin::Load(physics::WorldPtr world, sdf::ElementPtr sdf) {
 
   // Listen to the update event. This event is broadcast every
   // simulation iteration.
-  update_connection_ = event::Events::ConnectWorldUpdateBegin(boost::bind(&GazeboWindPlugin::OnUpdate, this, _1));
+  update_connection_ = event::Events::ConnectWorldUpdateBegin(boost::bind(&GazeboWindShearPlugin::OnUpdate, this, _1));
 
   wind_pub_ = node_handle_->Advertise<physics_msgs::msgs::Wind>("~/" + wind_pub_topic_, 10);
 
@@ -100,7 +104,7 @@ void GazeboWindPlugin::Load(physics::WorldPtr world, sdf::ElementPtr sdf) {
 }
 
 // This gets called by the world update start event.
-void GazeboWindPlugin::OnUpdate(const common::UpdateInfo& _info) {
+void GazeboWindShearPlugin::OnUpdate(const common::UpdateInfo& _info) {
   // Get the current simulation time.
 #if GAZEBO_MAJOR_VERSION >= 9
   common::Time now = world_->SimTime();
@@ -114,6 +118,17 @@ void GazeboWindPlugin::OnUpdate(const common::UpdateInfo& _info) {
 
   // Calculate the wind force.
   // Get normal distribution wind strength
+#if GAZEBO_MAJOR_VERSION >= 9
+    ignition::math::Pose3d pose_model_world = model_->WorldPose();
+#else
+    ignition::math::Pose3d pose_model_world = ignitionFromGazeboMath(model_->GetWorldPose());
+#endif
+  double altitude = pose_model_world.Pos().Z();
+  ///TODO: get wind strength from altitude
+  ///Linear wind shear
+  double wind_shear_velocity = wind_shear_gradient_ * altitude + wind_shear_offset_;
+  // Set random wind velocity mean and standard deviation
+  wind_velocity_distribution_.param(std::normal_distribution<double>::param_type(wind_shear_velocity, sqrt(wind_velocity_variance_)));
   double wind_strength = std::abs(wind_velocity_distribution_(wind_velocity_generator_));
   wind_strength = (wind_strength > wind_velocity_max_) ? wind_velocity_max_ : wind_strength;
   // Get normal distribution wind direction
@@ -150,5 +165,5 @@ void GazeboWindPlugin::OnUpdate(const common::UpdateInfo& _info) {
   wind_pub_->Publish(wind_msg);
 }
 
-GZ_REGISTER_WORLD_PLUGIN(GazeboWindPlugin);
+GZ_REGISTER_MODEL_PLUGIN(GazeboWindShearPlugin);
 }
