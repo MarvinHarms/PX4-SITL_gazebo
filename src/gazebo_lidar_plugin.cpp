@@ -47,6 +47,7 @@ LidarPlugin::~LidarPlugin()
   newLaserScansConnection_->~Connection();
   newLaserScansConnection_.reset();
   parentSensor_.reset();
+  world_->Reset();
 }
 
 /////////////////////////////////////////////////
